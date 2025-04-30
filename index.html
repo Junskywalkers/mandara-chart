@@ -151,7 +151,9 @@ function downloadMarkdown() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = "expanded_mandala_chart.md";
+  const center = mandalas[4][4] || 'mandala';
+  const safeCenter = center.replace(/[^\w\u3000-\u303F\u4E00-\u9FFF]/g, '_');
+  a.download = `mandala_${safeCenter}.md`;
   a.click();
   URL.revokeObjectURL(url);
 }
