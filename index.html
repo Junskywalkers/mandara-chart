@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>拡張版マンダラチャート生成（中心テーマファイル名対応）</title>
+  <title>拡張版マンダラチャート生成（Markdown読み込み対応）</title>
   <style>
     table {
       border-collapse: collapse;
@@ -40,15 +40,13 @@
   <input type="text" id="centerTheme" placeholder="中心テーマを入力" />
   <button onclick="setCenter()">中心テーマセット</button>
   <button onclick="downloadMarkdown()">Markdown保存</button>
+  <input type="file" id="markdownFile" accept=".md" onchange="loadMarkdown(event)" />
 </div>
 
 <div id="bigMandala" class="big-grid"></div>
 
 <script>
-// 9個のマンダラ（それぞれ9マス）
 let mandalas = Array.from({length: 9}, () => Array(9).fill(""));
-
-// 中央マンダラのサブマスと外側マンダラの対応マップ
 const outerMap = [0, 1, 2, 3, 5, 6, 7, 8];
 
 function renderBigMandala() {
@@ -81,42 +79,30 @@ function renderBigMandala() {
           input.onkeydown = function(e) {
             if (e.key === 'Enter') {
               saveInput(currentMandala, currentIndex, input.value);
-
-              // 次のマスへ
               let nextIndex = currentIndex + 1;
               let nextMandala = currentMandala;
-
               while (true) {
                 if (nextIndex >= 9) {
                   nextIndex = 0;
                   nextMandala++;
                   if (nextMandala >= 9) {
-                    renderBigMandala(); // 全部終了
+                    renderBigMandala();
                     return;
                   }
-                  if (nextMandala === 4) {
-                    nextMandala++; // 中央マンダラはスキップ！
-                  }
+                  if (nextMandala === 4) nextMandala++;
                 }
                 if (nextIndex === 4) {
-                  nextIndex++; // 中心マススキップ
+                  nextIndex++;
                   continue;
                 }
                 break;
               }
-
               renderBigMandala();
-
-              // 少し待ってから次のセルクリック
               setTimeout(() => {
-                const bigDiv = document.getElementById('bigMandala');
-                const tables = bigDiv.querySelectorAll('table');
+                const tables = document.querySelectorAll('#bigMandala table');
                 const nextTable = tables[nextMandala];
-                if (!nextTable) return;
-                const nextCell = nextTable.querySelectorAll('td')[nextIndex];
-                if (nextCell) {
-                  nextCell.click();
-                }
+                const nextCell = nextTable?.querySelectorAll('td')[nextIndex];
+                nextCell?.click();
               }, 50);
             }
           };
@@ -135,29 +121,21 @@ function renderBigMandala() {
   }
 }
 
-// 入力を保存し、外側マンダラに連携
 function saveInput(mandalaIndex, cellIndex, value) {
   mandalas[mandalaIndex][cellIndex] = value;
-
-  // 中央マンダラのサブテーマ入力時は外側に反映
   if (mandalaIndex === 4 && cellIndex !== 4) {
     const outerIdx = outerMap[cellIndex < 4 ? cellIndex : cellIndex - 1];
     mandalas[outerIdx][4] = value;
   }
 }
 
-// 中心テーマをセット
 function setCenter() {
   const center = document.getElementById('centerTheme').value.trim();
-  if (!center) {
-    alert("中心テーマを入力してください！");
-    return;
-  }
-  mandalas[4][4] = center; // 真ん中のマンダラの中心にセット
+  if (!center) return alert("中心テーマを入力してください！");
+  mandalas[4][4] = center;
   renderBigMandala();
 }
 
-// Markdownファイル生成・ダウンロード
 function downloadMarkdown() {
   let md = `# 拡張版マンダラチャート\n\n`;
   for (let m = 0; m < 9; m++) {
@@ -169,26 +147,45 @@ function downloadMarkdown() {
     });
     md += "\n";
   }
-
-  // ファイル名に中心テーマを反映
-  let centerTheme = mandalas[4][4] || "mandala"; // 中央マンダラの中心
-  centerTheme = centerTheme.replace(/\s+/g, '_'); // スペースをアンダースコアに
-  centerTheme = centerTheme.replace(/[^\w\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g, ''); // 記号除去
-
-  const filename = `mandara_${centerTheme}.md`;
-
-const blob = new Blob(["\uFEFF" + md], { type: "text/markdown;charset=utf-8" });
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = filename;
-a.click();
-URL.revokeObjectURL(url);
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "expanded_mandala_chart.md";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-// 初期描画
+function loadMarkdown(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/);
+    let currentMandala = -1;
+    let subIndex = 0;
+    for (let line of lines) {
+      if (/^## マンダラ(\d+)/.test(line)) {
+        currentMandala = parseInt(RegExp.$1, 10) - 1;
+        subIndex = 0;
+      } else if (/^中心テーマ:/.test(line)) {
+        mandalas[currentMandala][4] = line.replace(/^中心テーマ:\s*/, "").trim();
+      } else if (/^-\s*(.*)/.test(line)) {
+        const value = RegExp.$1.trim();
+        let idx = subIndex >= 4 ? subIndex + 1 : subIndex;
+        if (idx < 9 && currentMandala >= 0) {
+          mandalas[currentMandala][idx] = value;
+        }
+        subIndex++;
+      }
+    }
+    renderBigMandala();
+  };
+  reader.readAsText(file);
+}
+
 renderBigMandala();
 </script>
-
 </body>
 </html>
