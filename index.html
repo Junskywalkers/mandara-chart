@@ -147,11 +147,14 @@ function downloadMarkdown() {
     });
     md += "\n";
   }
-  const blob = new Blob([md], { type: "text/markdown" });
+
+    // UTF-8 BOM付き（Safariなどで文字化け防止）
+  const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+  const blob = new Blob([bom, md], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-
+  
     // 中心テーマをファイル名に使う
   
   const center = mandalas[4][4] || 'mandala';
