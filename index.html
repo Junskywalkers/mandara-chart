@@ -158,8 +158,9 @@ function downloadMarkdown() {
     // 中心テーマをファイル名に使う
   
   const center = mandalas[4][4] || 'mandala';
-  const safeCenter = center.replace(/[^\w\u3000-\u303F\u4E00-\u9FFF]/g, '_');
+  const safeCenter = center.replace(/[\\\\/:*?\"<>|]/g, '_'); // ファイル名に使えない記号を除去
   a.download = `mandala_${safeCenter}.md`;
+  
   a.click();
   URL.revokeObjectURL(url);
 }
